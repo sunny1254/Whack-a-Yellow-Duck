@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whack-a-Yellow-Duck</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&amp;family=Nunito:wght@600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    
+    .game-font {
+      font-family: 'Fredoka One', cursive;
+    }
+    
+    .ui-font {
+      font-family: 'Nunito', sans-serif;
+    }
+    
+    @keyframes duckPop {
+      0% { transform: translateY(100%); }
+      100% { transform: translateY(0); }
+          }
+    
+    @keyframes duckHide {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(100%); }
+    }
+    
+    @keyframes duckHit {
+      0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+      50% { transform: translateY(-20px) scale(1.2) rotate(15deg); opacity: 0.8; }
+      100% { transform: translateY(100%) scale(0.5) rotate(30deg); opacity: 0; }
+    }
+    
+    @keyframes scorePopup {
+      0% { transform: translateY(0) scale(0.5); opacity: 1; }
+      100% { transform: translateY(-50px) scale(1.2); opacity: 0; }
+    }
+    
+    @keyframes comboShake {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-5deg); }
+      75% { transform: rotate(5deg); }
+    }
+    
+    @keyframes levelUp {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+    
+    @keyframes ripple {
+      0% { transform: scale(0); opacity: 1; }
+      100% { transform: scale(2); opacity: 0; }
+    }
+    
+    @keyframes hammerSwing {
+      0% { transform: translate(-50%, -50%) rotate(-45deg) scale(0.8); opacity: 0; }
+      50% { transform: translate(-50%, -50%) rotate(0deg) scale(1.2); opacity: 1; }
+      100% { transform: translate(-50%, -50%) rotate(15deg) scale(0.9); opacity: 0; }
+    }
+    
+    .hammer-hit {
+      animation: hammerSwing 0.4s ease-out forwards;
+    }
+    
+    .duck-pop {
+      animation: duckPop 0.2s ease-out forwards;
+    }
+    
+    .duck-hide {
+      animation: duckHide 0.15s ease-in forwards;
+    }
+    
+    .duck-hit {
+      animation: duckHit 0.3s ease-out forwards;
+    }
+    
+    .score-popup {
+      animation: scorePopup 0.6s ease-out forwards;
+    }
+    
+    .combo-shake {
+      animation: comboShake 0.3s ease-in-out;
+    }
+    
+    .level-up {
+      animation: levelUp 0.5s ease-in-out;
+    }
+    
+    .hole {
+      background: linear-gradient(180deg, #5D4037 0%, #3E2723 100%);
+      border-radius: 50%;
+      box-shadow: inset 0 8px 20px rgba(0,0,0,0.6), 0 4px 8px rgba(0,0,0,0.3);
+    }
+    
+    .hole-grass {
+      background: linear-gradient(180deg, #4CAF50 0%, #388E3C 50%, #2E7D32 100%);
+      border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    }
+    
+    .duck-container {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M16 4L6 28h20L16 4z' fill='%238B4513' stroke='%23654321' stroke-width='2'/%3E%3Ccircle cx='16' cy='8' r='3' fill='%23D2691E'/%3E%3C/svg%3E") 16 4, pointer;
+    }
+    
+    .ripple-effect {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 235, 59, 0.4);
+      animation: ripple 0.4s ease-out forwards;
+      pointer-events: none;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+ </head>
+ <body class="h-full overflow-auto ui-font">
+  <div id="app" class="min-h-full w-full flex flex-col" <div id="app"
+  class="min-h-full w-full flex flex-col"
+  style="
+    background-image: url('img/bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+"><!-- Start Screen -->
+   <div id="start-screen" class="flex-1 flex flex-col items-center justify-center p-4">
+    <div class="text-center mb-8">
+     <h1 id="game-title" class="game-font text-4xl md:text-6xl text-yellow-400 drop-shadow-lg mb-2" style="text-shadow: 3px 3px 0 #F57C00, 6px 6px 0 rgba(0,0,0,0.2);">🦆 Whack-a-Yellow-Duck</h1>
+         <p class="text-white text-lg md:text-xl drop-shadow-md">Tap the ducks before they hide!</p>
+    </div><!-- Preview Duck -->
+    <div class="mb-8">
+     <svg width="120" height="120" viewbox="0 0 100 100" class="drop-shadow-xl animate-bounce"><ellipse cx="50" cy="85" rx="35" ry="12" fill="#FDD835" /> <ellipse cx="50" cy="60" rx="30" ry="28" fill="#FFEB3B" /> <circle cx="50" cy="35" r="22" fill="#FFEB3B" /> <ellipse cx="42" cy="30" rx="5" ry="6" fill="white" /> <ellipse cx="58" cy="30" rx="5" ry="6" fill="white" /> <circle cx="43" cy="31" r="3" fill="#1A1A1A" /> <circle cx="57" cy="31" r="3" fill="#1A1A1A" /> <circle cx="44" cy="29" r="1" fill="white" /> <circle cx="58" cy="29" r="1" fill="white" /> <ellipse cx="50" cy="42" rx="8" ry="5" fill="#FF9800" /> <path d="M15 55 Q5 60 15 70 Q25 65 20 55" fill="#FFEB3B" /> <path d="M85 55 Q95 60 85 70 Q75 65 80 55" fill="#FFEB3B" />
+          </svg>
+    </div><button id="start-btn" class="game-font text-2xl md:text-3xl bg-gradient-to-b from-green-400 to-green-600 text-white px-10 py-4 rounded-full shadow-lg hover:from-green-500 hover:to-green-700 transform hover:scale-105 transition-all duration-200 border-4 border-green-300"> 🎮 Start Game </button> <button id="leaderboard-btn" class="mt-4 game-font text-lg bg-gradient-to-b from-purple-400 to-purple-600 text-white px-6 py-2 rounded-full shadow-lg hover:from-purple-500 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 border-2 border-purple-300"> 🏆 Leaderboard </button>
+   </div><!-- Game Screen -->
+   <div id="game-screen" class="hidden flex-1 flex flex-col p-2 md:p-4"><!-- Stats Bar -->
+    <div class="flex justify-between items-center mb-4 px-2">
+     <div class="bg-white/90 rounded-xl px-4 py-2 shadow-lg"><span class="text-gray-600 text-sm">Score</span>
+      <div id="score-display" class="game-font text-2xl text-orange-500">
+       0
+      </div>
+     </div>
+     <div class="bg-white/90 rounded-xl px-4 py-2 shadow-lg"><span class="text-gray-600 text-sm">Level</span>
+      <div id="level-display" class="game-font text-2xl text-purple-500">
+        1
+      </div>
+     </div>
+     <div class="bg-white/90 rounded-xl px-4 py-2 shadow-lg"><span class="text-gray-600 text-sm">Time</span>
+      <div id="timer-display" class="game-font text-2xl text-red-500">
+       60
+      </div>
+     </div>
+     <div class="bg-white/90 rounded-xl px-4 py-2 shadow-lg"><span class="text-gray-600 text-sm">Combo</span>
+      <div id="combo-display" class="game-font text-2xl text-green-500">
+       x1
+      </div>
+     </div>
+    </div><!-- Game Board -->
+    <div class="flex-1 flex items-center justify-center">
+     <div id="game-board" class="duck-container grid grid-cols-3 gap-4 md:gap-6 p-4 max-w-md w-full"><!-- Holes will be generated here -->
+     </div>
+    </div>
+   </div><!-- Game Over Screen -->
+   <div id="gameover-screen" class="hidden flex-1 flex flex-col items-center justify-center p-4">
+    <div class="bg-white/95 rounded-3xl p-6 md:p-8 shadow-2xl max-w-md w-full text-center">
+     <h2 class="game-font text-3xl md:text-4xl text-orange-500 mb-4">🎉 Game Over!</h2>
+     <div class="mb-6">
+      <div class="text-gray-600 mb-1">
+       Final Score
+      </div>
+      <div id="final-score" class="game-font text-5xl text-yellow-500">
+       0
+      </div>
+     </div>
+     <div class="mb-6">
+      <div class="text-gray-600 mb-1">
+       Level Reached
+      </div>
+      <div id="final-level" class="game-font text-3xl text-purple-500">
+        1
+      </div>
+     </div>
+     <div class="mb-6"><label for="player-name" class="text-gray-600 block mb-2">Enter Your Name</label> <input type="text" id="player-name" maxlength="15" placeholder="Your name" class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-yellow-400 focus:outline-none text-center text-lg">
+     </div><button id="save-score-btn" class="game-font text-xl bg-gradient-to-b from-yellow-400 to-yellow-600 text-white px-8 py-3 rounded-full shadow-lg hover:from-yellow-500 hover:to-yellow-700 transform hover:scale-105 transition-all duration-200 border-2 border-yellow-300 w-full mb-3"> 💾 Save Score </button> <button id="play-again-btn" class="game-font text-xl bg-gradient-to-b from-green-400 to-green-600 text-white px-8 py-3 rounded-full shadow-lg hover:from-green-500 hover:to-green-700 transform hover:scale-105 transition-all duration-200 border-2 border-green-300 w-full"> 🔄 Play Again </button>
+    </div>
+   </div><!-- Leaderboard Screen -->
+   <div id="leaderboard-screen" class="hidden flex-1 flex flex-col items-center justify-center p-4">
+    <div class="bg-white/95 rounded-3xl p-6 md:p-8 shadow-2xl max-w-md w-full">
+     <h2 class="game-font text-3xl text-purple-500 mb-6 text-center">🏆 Leaderboard</h2>
+     <div id="leaderboard-list" class="space-y-3 mb-6 max-h-80 overflow-y-auto"><!-- Leaderboard entries will be generated here -->
+     </div><button id="back-btn" class="game-font text-xl bg-gradient-to-b from-gray-400 to-gray-600 text-white px-8 py-3 rounded-full shadow-lg hover:from-gray-500 hover:to-gray-700 transform hover:scale-105 transition-all duration-200 border-2 border-gray-300 w-full"> ← Back to Menu </button>
+    </div>
+   </div><!-- Floating score popups container -->
+   <div id="popup-container" class="fixed inset-0 pointer-events-none overflow-hidden"></div>
+  </div>
+  <script>
+    // Game State
+    let gameState = {
+      score: 0,
+      level: 1,
+      timeLeft: 60,
+      combo: 0,
+      isPlaying: false,
+      duckSpeed: 1500,
+      maxDucks: 1,
+      gameTimer: null,
+      duckTimers: [],
+      activeDucks: new Set()
+    };
+    
+    // Leaderboard data
+    let leaderboardData = [];
+
+        // Config
+    const defaultConfig = {
+      game_title: "🦆 Whack-a-Yellow-Duck",
+      start_button_text: "🎮 Start Game",
+      background_color: "#87CEEB",
+      accent_color: "#FFEB3B",
+      text_color: "#1A1A1A",
+      button_color: "#4CAF50",
+      secondary_color: "#9C27B0"
+    };
+    
+    let config = { ...defaultConfig };
+    
+    // DOM Elements
+    const screens = {
+      start: document.getElementById('start-screen'),
+      game: document.getElementById('game-screen'),
+      gameover: document.getElementById('gameover-screen'),
+      leaderboard: document.getElementById('leaderboard-screen')
+    };
+    
+    const elements = {
+      gameTitle: document.getElementById('game-title'),
+      startBtn: document.getElementById('start-btn'),
+      leaderboardBtn: document.getElementById('leaderboard-btn'),
+      scoreDisplay: document.getElementById('score-display'),
+      levelDisplay: document.getElementById('level-display'),
+      timerDisplay: document.getElementById('timer-display'),
+      comboDisplay: document.getElementById('combo-display'),
+      gameBoard: document.getElementById('game-board'),
+      finalScore: document.getElementById('final-score'),
+      finalLevel: document.getElementById('final-level'),
+      playerName: document.getElementById('player-name'),
+      saveScoreBtn: document.getElementById('save-score-btn'),
+      playAgainBtn: document.getElementById('play-again-btn'),
+      backBtn: document.getElementById('back-btn'),
+      leaderboardList: document.getElementById('leaderboard-list'),
+      popupContainer: document.getElementById('popup-container')
+    };
+
+        // Initialize game board
+    function initGameBoard() {
+      elements.gameBoard.innerHTML = '';
+      for (let i = 0; i < 9; i++) {
+        const holeContainer = document.createElement('div');
+        holeContainer.className = 'relative';
+        holeContainer.innerHTML = `
+          <div class="hole-grass absolute -top-2 left-1/2 -translate-x-1/2 w-24 h-6 z-10"></div>
+          <div class="hole w-20 h-20 md:w-24 md:h-24 mx-auto relative overflow-hidden">
+            <div id="duck-${i}" class="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full cursor-pointer select-none" data-hole="${i}">
+              <svg width="60" height="70" viewBox="0 0 60 70" class="drop-shadow-md">
+                <ellipse cx="30" cy="60" rx="22" ry="8" fill="#FDD835"/>
+                <ellipse cx="30" cy="42" rx="20" ry="18" fill="#FFEB3B"/>
+                <circle cx="30" cy="22" r="16" fill="#FFEB3B"/>
+                <ellipse cx="24" cy="18" rx="4" ry="5" fill="white"/>
+                <ellipse cx="36" cy="18" rx="4" ry="5" fill="white"/>
+                <circle cx="25" cy="19" r="2.5" fill="#1A1A1A"/>
+                <circle cx="35" cy="19" r="2.5" fill="#1A1A1A"/>
+                <circle cx="26" cy="17" r="1" fill="white"/>
+                <circle cx="36" cy="17" r="1" fill="white"/>
+                <ellipse cx="30" cy="28" rx="6" ry="4" fill="#FF9800"/>
+                <path d="M8 38 Q2 42 8 48 Q14 44 12 38" fill="#FFEB3B"/>
+                <path d="M52 38 Q58 42 52 48 Q46 44 48 38" fill="#FFEB3B"/>
+              </svg>
+            </div>
+          </div>
+        `;
+        elements.gameBoard.appendChild(holeContainer);
+        
+        // Add click handler to duck
+        const duck = holeContainer.querySelector(`#duck-${i}`);
+        duck.addEventListener('click', (e) => handleDuckClick(i, e));
+        duck.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          handleDuckClick(i, e);
+        }, { passive: false });
+      }
+    }
+
+        /* =========================================================
+        🔊 SOUND SYSTEM
+        ========================================================= */
+        const bgm = new Audio('sound/sbgm.mp3');
+        bgm.loop = true;
+        bgm.volume = 0.4;
+
+        const hitSound = new Audio('sound/hit.mp3');
+        hitSound.volume = 0.7;
+
+        const duckSound = new Audio('sound/duck.mp3');
+        duckSound.volume = 0.1;
+
+        const overSound = new Audio('sound/over.mp3');
+        overSound.volume = 0.2;
+
+        function playSound(sound) {
+        sound.currentTime = 0;
+        sound.play();
+        }
+
+
+    // Show screen
+    function showScreen(screenName) {
+      Object.values(screens).forEach(screen => screen.classList.add('hidden'));
+      screens[screenName].classList.remove('hidden');
+      bgm.play().catch(() => {});
+    }
+    
+    // Start game
+    function startGame() {
+      gameState = {
+        score: 0,
+        level: 1,
+        timeLeft: 60,
+        combo: 0,
+        isPlaying: true,
+        duckSpeed: 1500,
+        maxDucks: 1,
+        gameTimer: null,
+        duckTimers: [],
+        activeDucks: new Set()
+      };
+      
+      updateDisplay();
+      showScreen('game');
+      initGameBoard();
+      
+      // Start game timer
+      gameState.gameTimer = setInterval(() => {
+        gameState.timeLeft--;
+        elements.timerDisplay.textContent = gameState.timeLeft;
+        
+        if (gameState.timeLeft <= 10) {
+          elements.timerDisplay.classList.add('animate-pulse');
+        }
+        
+        if (gameState.timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
+      
+      // Start spawning ducks
+      spawnDuck();
+    }
+    
+    // Spawn duck
+    function spawnDuck() {
+      if (!gameState.isPlaying) return;
+      
+      // Find available holes
+      const availableHoles = [];
+      for (let i = 0; i < 9; i++) {
+        if (!gameState.activeDucks.has(i)) {
+          availableHoles.push(i);
+        }
+      }
+      if (availableHoles.length === 0) {
+        setTimeout(spawnDuck, 200);
+        return;
+      }
+      
+      // Pick random hole
+      const holeIndex = availableHoles[Math.floor(Math.random() * availableHoles.length)];
+      showDuck(holeIndex);
+      
+      // Schedule next spawn
+      const spawnDelay = Math.max(300, gameState.duckSpeed * 0.6);
+      const timer = setTimeout(spawnDuck, spawnDelay);
+      gameState.duckTimers.push(timer);
+    }
+    
+    // Show duck
+    function showDuck(holeIndex) {
+      if (!gameState.isPlaying || gameState.activeDucks.has(holeIndex)) return;
+      
+      const duck = document.getElementById(`duck-${holeIndex}`);
+      if (!duck) return;
+      
+      gameState.activeDucks.add(holeIndex);
+      duck.classList.remove('duck-hide', 'duck-hit');
+      duck.classList.add('duck-pop');
+      duck.style.transform = 'translateX(-50%) translateY(0)';
+        playSound(duckSound);
+      
+      // Hide duck after duration
+      const hideDelay = gameState.duckSpeed;
+      const timer = setTimeout(() => {
+        hideDuck(holeIndex, false);
+      }, hideDelay);
+      gameState.duckTimers.push(timer);
+    }
+    
+    // Hide duck
+    function hideDuck(holeIndex, wasHit) {
+      const duck = document.getElementById(`duck-${holeIndex}`);
+      if (!duck) return;
+      
+      if (!wasHit && gameState.activeDucks.has(holeIndex)) {
+        // Missed - reset combo
+        gameState.combo = 0;
+        updateComboDisplay();
+      }
+      
+      gameState.activeDucks.delete(holeIndex);
+      duck.classList.remove('duck-pop');
+      
+      if (wasHit) {
+        duck.classList.add('duck-hit');
+      } else {
+        duck.classList.add('duck-hide');
+      }
+      
+      setTimeout(() => {
+        duck.style.transform = 'translateX(-50%) translateY(100%)';
+        duck.classList.remove('duck-hit', 'duck-hide');
+      }, 300);
+
+    }
+    
+    // Handle duck click
+    function handleDuckClick(holeIndex, event) {
+      if (!gameState.isPlaying || !gameState.activeDucks.has(holeIndex)) return;
+      
+      // Get click position
+      const clickX = event.clientX || (event.touches && event.touches[0].clientX);
+      const clickY = event.clientY || (event.touches && event.touches[0].clientY);
+
+      playSound(hitSound);
+      
+      // Create hammer effect
+      const hammer = document.createElement('div');
+      hammer.className = 'hammer-hit fixed pointer-events-none z-50';
+      hammer.style.left = `${clickX}px`;
+      hammer.style.top = `${clickY}px`;
+      hammer.innerHTML = `
+        <svg width="64" height="64" viewBox="0 0 64 64" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+          <rect x="28" y="45" width="8" height="18" fill="#8B4513" rx="2"/>
+          <rect x="18" y="32" width="28" height="16" fill="#654321" rx="3"/>
+          <rect x="15" y="28" width="34" height="12" fill="#A0522D" rx="4"/>
+          <circle cx="32" cy="34" r="3" fill="#D2691E"/>
+        </svg>
+      `;
+      elements.popupContainer.appendChild(hammer);
+      setTimeout(() => hammer.remove(), 400);
+      
+      // Create ripple effect
+      const rect = event.target.closest('.hole').getBoundingClientRect();
+      const ripple = document.createElement('div');
+      ripple.className = 'ripple-effect';
+      ripple.style.width = '60px';
+      ripple.style.height = '60px';
+      ripple.style.left = `${rect.left + rect.width / 2 - 30}px`;
+      ripple.style.top = `${rect.top + rect.height / 2 - 30}px`;
+      elements.popupContainer.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 400);
+      
+      // Update combo
+      gameState.combo++;
+      const comboMultiplier = Math.min(gameState.combo, 5);
+
+        
+      
+      // Calculate score
+      const baseScore = 10;
+      const comboBonus = (comboMultiplier - 1) * 5;
+      const totalScore = baseScore + comboBonus;
+      
+      gameState.score += totalScore;
+      
+      // Show score popup at click position
+      showScorePopup(clickX, clickY, totalScore, comboMultiplier);
+      
+      // Hide duck
+      hideDuck(holeIndex, true);
+      
+      // Update display
+      updateDisplay();
+      
+      // Check for level up
+      checkLevelUp();
+    }
+    
+    // Show score popup
+    function showScorePopup(x, y, score, combo) {
+      const popup = document.createElement('div');
+      popup.className = 'score-popup fixed game-font text-2xl md:text-3xl font-bold pointer-events-none z-50';
+      popup.style.left = `${x}px`;
+      popup.style.top = `${y}px`;
+      popup.style.transform = 'translate(-50%, -50%)';
+      popup.style.textShadow = '3px 3px 0 white, -1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white';
+      
+      if (combo > 1) {
+        popup.style.color = '#FF5722';
+        popup.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span>+${score}</span>
+            <span class="text-yellow-500 animate-pulse">✨x${combo}✨</span>
+          </div>
+        `;
+      } else {
+        popup.style.color = '#4CAF50';
+        popup.innerHTML = `+${score}`;
+      }
+      
+      elements.popupContainer.appendChild(popup);
+      
+      setTimeout(() => popup.remove(), 600);
+
+
+    }
+    
+    // Update display
+    function updateDisplay() {
+      elements.scoreDisplay.textContent = gameState.score;
+      elements.levelDisplay.textContent = gameState.level;
+      updateComboDisplay();
+    }
+
+    // Update combo display
+    function updateComboDisplay() {
+      const comboMultiplier = Math.min(gameState.combo, 5);
+      elements.comboDisplay.textContent = `x${comboMultiplier}`;
+      
+      if (gameState.combo > 1) {
+        elements.comboDisplay.classList.add('combo-shake');
+        elements.comboDisplay.style.color = '#FF5722';
+        setTimeout(() => {
+          elements.comboDisplay.classList.remove('combo-shake');
+        }, 300);
+      } else {
+        elements.comboDisplay.style.color = '#4CAF50';
+      }
+    }
+    
+    // Check for level up
+    function checkLevelUp() {
+      const newLevel = Math.floor(gameState.score / 100) + 1;
+      
+      if (newLevel > gameState.level) {
+        gameState.level = newLevel;
+        
+        // Increase difficulty
+        gameState.duckSpeed = Math.max(600, 1500 - (gameState.level - 1) * 100);
+        gameState.maxDucks = Math.min(4, 1 + Math.floor(gameState.level / 2));
+        
+        // Level up animation
+        elements.levelDisplay.classList.add('level-up');
+        setTimeout(() => {
+          elements.levelDisplay.classList.remove('level-up');
+        }, 500);
+        
+        updateDisplay();
+      }
+    }
+    
+    // End game
+    function endGame() {
+      gameState.isPlaying = false;
+      playSound(overSound);
+      
+      // Clear all timers
+      clearInterval(gameState.gameTimer);
+      gameState.duckTimers.forEach(timer => clearTimeout(timer));
+      gameState.duckTimers = [];
+      
+      // Show game over screen
+      elements.finalScore.textContent = gameState.score;
+      elements.finalLevel.textContent = gameState.level;
+      elements.playerName.value = '';
+      
+      showScreen('gameover');
+    }
+    
+    // Save score
+    async function saveScore() {
+      const playerName = elements.playerName.value.trim() || 'Anonymous';
+      
+      if (leaderboardData.length >= 999) {
+        showInlineMessage('Leaderboard is full!');
+        return;
+      }
+      
+      elements.saveScoreBtn.disabled = true;
+      elements.saveScoreBtn.textContent = '💾 Saving...';
+      const result = await window.dataSdk.create({
+        player_name: playerName,
+        score: gameState.score,
+        level: gameState.level,
+        created_at: new Date().toISOString()
+      });
+      
+      if (result.isOk) {
+        elements.saveScoreBtn.textContent = '✅ Saved!';
+        setTimeout(() => {
+          showLeaderboard();
+        }, 500);
+      } else {
+        elements.saveScoreBtn.textContent = '❌ Error';
+        setTimeout(() => {
+          elements.saveScoreBtn.disabled = false;
+          elements.saveScoreBtn.textContent = '💾 Save Score';
+        }, 1500);
+      }
+    }
+    
+    // Show inline message
+    function showInlineMessage(message) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'fixed top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-full game-font shadow-lg z-50';
+      msgDiv.textContent = message;
+      document.body.appendChild(msgDiv);
+      setTimeout(() => msgDiv.remove(), 2000);
+    }
+    
+    // Show leaderboard
+    function showLeaderboard() {
+      renderLeaderboard();
+      showScreen('leaderboard');
+    }
+    
+    // Render leaderboard
+    function renderLeaderboard() {
+      const sorted = [...leaderboardData].sort((a, b) => b.score - a.score).slice(0, 10);
+      
+      if (sorted.length === 0) {
+        elements.leaderboardList.innerHTML = `
+          <div class="text-center text-gray-500 py-8">
+            <div class="text-4xl mb-2">🦆</div>
+            <p>No scores yet!</p>
+            <p class="text-sm">Be the first to play!</p>
+          </div>
+        `;
+        return;
+      }
+      
+      const medals = ['🥇', '🥈', '🥉'];
+      
+      elements.leaderboardList.innerHTML = sorted.map((entry, index) => {
+        const medal = medals[index] || `${index + 1}.`;
+        const date = new Date(entry.created_at);
+        const dateStr = date.toLocaleDateString();
+        
+        return `
+          <div class="flex items-center bg-gradient-to-r ${index < 3 ? 'from-yellow-50 to-orange-50' : 'from-gray-50 to-white'} rounded-xl p-3 shadow-sm">
+            <span class="text-2xl mr-3">${medal}</span>
+            <div class="flex-1">
+              <div class="font-bold text-gray-800">${entry.player_name}</div>
+              <div class="text-sm text-gray-500">Level ${entry.level} • ${dateStr}</div>
+            </div>
+            <div class="game-font text-xl text-orange-500">${entry.score}</div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // Apply config to UI
+    function applyConfig() {
+      elements.gameTitle.textContent = config.game_title || defaultConfig.game_title;
+      elements.startBtn.innerHTML = config.start_button_text || defaultConfig.start_button_text;
+    }
+    
+    // Data handler for SDK
+    const dataHandler = {
+      onDataChanged(data) {
+        leaderboardData = data;
+        if (!screens.leaderboard.classList.contains('hidden')) {
+          renderLeaderboard();
+        }
+      }
+    };
+    
+    // Element SDK implementation
+    const elementImpl = {
+      defaultConfig,
+      onConfigChange: async (newConfig) => {
+        config = { ...defaultConfig, ...newConfig };
+        applyConfig();
+      },
+      mapToCapabilities: (cfg) => ({
+        recolorables: [
+            {
+            get: () => cfg.background_color || defaultConfig.background_color,
+            set: (v) => { cfg.background_color = v; window.elementSdk.setConfig({ background_color: v }); }
+          },
+          {
+            get: () => cfg.accent_color || defaultConfig.accent_color,
+            set: (v) => { cfg.accent_color = v; window.elementSdk.setConfig({ accent_color: v }); }
+          },
+          {
+            get: () => cfg.text_color || defaultConfig.text_color,
+            set: (v) => { cfg.text_color = v; window.elementSdk.setConfig({ text_color: v }); }
+          },
+          {
+            get: () => cfg.button_color || defaultConfig.button_color,
+            set: (v) => { cfg.button_color = v; window.elementSdk.setConfig({ button_color: v }); }
+          },
+          {
+            get: () => cfg.secondary_color || defaultConfig.secondary_color,
+            set: (v) => { cfg.secondary_color = v; window.elementSdk.setConfig({ secondary_color: v }); }
+          }
+        ],
+        borderables: [],
+        fontEditable: undefined,
+        fontSizeable: undefined
+      }),
+      mapToEditPanelValues: (cfg) => new Map([
+        ["game_title", cfg.game_title || defaultConfig.game_title],
+        ["start_button_text", cfg.start_button_text || defaultConfig.start_button_text]
+      ])
+    };
+    
+    // Initialize
+    async function init() {
+      // Init Element SDK
+      if (window.elementSdk) {
+        window.elementSdk.init(elementImpl);
+      }
+      
+      // Init Data SDK
+      if (window.dataSdk) {
+        await window.dataSdk.init(dataHandler);
+      }
+      
+      // Apply initial config
+      applyConfig();
+      
+      // Event listeners
+      elements.startBtn.addEventListener('click', startGame);
+      elements.leaderboardBtn.addEventListener('click', showLeaderboard);
+      elements.saveScoreBtn.addEventListener('click', saveScore);
+      elements.playAgainBtn.addEventListener('click', startGame);
+      elements.backBtn.addEventListener('click', () => showScreen('start'));
+      
+      // Prevent form submission
+      elements.playerName.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          saveScore();
+        }
+      });
+    }
+    
+    init();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c92fafa46de5037',t:'MTc3MDMwMDUxMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
